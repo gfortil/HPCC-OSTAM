@@ -3,7 +3,7 @@ variable "build_server" {
 }
 variable "mydropzone_folder_names" {
   type      = list
-  default   = "mydropzone"
+  default   = ["mydropzone"]
 }
 variable "timezone" {
   type      = string

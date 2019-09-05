@@ -1,2 +1,2 @@
-# HPCC-OSTAM
-HPCC OpenStack Terraform Abstracted Module
+# HPCC-Terraform
+Using Terraform to orchestrate HPCC Clusters in the cloud

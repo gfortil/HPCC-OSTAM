@@ -7,6 +7,11 @@ LOG=/var/log/provisioner.log
 exec > $LOG 2>&1
 set -x
 
+# Set timezone
+export TZ="/usr/share/zoneinfo/America/${timezone}"
+echo "export TZ=\"/usr/share/zoneinfo/America/${timezone}\"" >> ~/.bashrc
+$(cat ~/.bashrc | TZ)
+
 # ---
 # Format and mount filesystems
 # ---
@@ -18,7 +23,7 @@ then
 else
     echo "Format ${device}"
 
-    # This block is necessary to prevent provisioner from contiuing before volume is attached
+    # This block is necessary to prevent provisioner from continuing before volume is attached
     while [ ! -b ${device} ]; do sleep 1; done
 
     mkfs.ext4 ${device}
@@ -70,18 +75,21 @@ move_dir /usr/local
 move_dir /opt
 move_dir /tmp
 
-if [ $(hostname -s) == "lzone" ]
+if [ `hostname -s` == "esp" ]
+then
+    move_dir /downloads
+fi
+
+if [ `hostname -s` == "lzone" ]
 then
     for folder in ${mydropzone_folder_names}
     do
-        mkdir /var/lib/HPCCSystems/$folder
-        move_dir /var/lib/HPCCSystems/$folder
+        mkdir /var/lib/HPCCSystems/mydropzone/$folder
+        move_dir /var/lib/HPCCSystems/mydropzone/$folder
+        chown hpcc:hpcc ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
+        chmod 775 ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
     done
 fi
-
-# Set timezone
-export TZ="/usr/share/zoneinfo/America/${timezone}"
-echo "export TZ="/usr/share/zoneinfo/America/${timezone}"" | sudo tee -a ~/.bashrc
 
 # ---
 # Install HPCC
@@ -100,7 +108,7 @@ if [ -e /etc/lsb-release ]; then
 elif [ -e /etc/redhat-release ]; then
 	if [ ! -f /etc/os-release ]; then
     	distro="el6"
-	elif [ $(cat /etc/os-release | grep VERSION_ID) == 'VERSION_ID="7"' ]; then
+	elif [ `cat /etc/os-release | grep VERSION_ID` == 'VERSION_ID="7"' ]; then
 		distro="el7"
    	fi
 fi
@@ -111,7 +119,7 @@ then
     rm /tmp/hpccsystems-platform-* -rf
 fi
 
-if [ $isDebian == false -a 'hostname -s' != "lzone" ]
+if [ $isDebian == false ]
 then
     # ---
     # Install dependencies
@@ -122,42 +130,42 @@ then
     sed -i '/LN-epel/,/enabled=0/ s/enabled=0/enabled=1/' /etc/yum.repos.d/LexisNexis.repo
 
     # Copy RPM-GPG-KEY for EPEL-7 into /etc/pki/rpm-gpg
-    cp /etc/pki/rpm-gpg/files/RPM-GPG-KEY-EPEL-7 /etc/pki/rpm-gpg
+    cp /home/centos/RPM-GPG-KEY-EPEL-7 /etc/pki/rpm-gpg
 
     yum update -y
 
-    if [ ${hpcc_package} == "CE" ]
+    if [ ${edition} == "CE" ]
     then
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm -P /tmp -a /var/log/wget.log
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm.md5 -P /tmp -a /var/log/wget.log
 
-        if [ -e /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm ] && [ -e /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 ]
+        if [ -e /tmp/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm ] && [ -e /tmp/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm.md5 ]
         then
             #checksum
-            A=$(md5sum /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm | awk '{print $1}')
-            B=$(cat /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 | awk '{print $1}')
+            A=$(md5sum /tmp/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm | awk '{print $1}')
+            B=$(cat /tmp/hpccsystems-platform-community_${version}-${release}.$distro.x86_64.rpm.md5 | awk '{print $1}')
         else
             echo ".rpm or .rpm.md5 file is missing"
             echo "Exiting now"
             exit 1
         fi
-    elif [ ${hpcc_package} == "LN" ]
+    elif [ ${edition} == "LN" ]
     then
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm -P /tmp -a /var/log/wget.log
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm.md5 -P /tmp -a /var/log/wget.log
 
-        if [ -e /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm ] && [ -e /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 ]
+        if [ -e /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm ] && [ -e /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm.md5 ]
         then
             #checksum
-            A=$(md5sum /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm | awk '{print $1}')
-            B=$(cat /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}.$distro.x86_64.rpm.md5 | awk '{print $1}')
+            A=$(md5sum /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm | awk '{print $1}')
+            B=$(cat /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}.$distro.x86_64.rpm.md5 | awk '{print $1}')
         else
             echo ".rpm or .rpm.md5 file is missing"
             echo "Exiting now"
             exit 1
         fi
     else
-        echo "Wrong package type: ${hpcc_package}"
+        echo "Wrong package type: ${edition}"
         echo "Available package types: CE, LN"
         exit 1
     fi
@@ -165,42 +173,44 @@ then
     if [ $A == $B ]
     then
         yum install -y /tmp/hpccsystems-platform-*.rpm
+        sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
-elif [ $isDebian == true -a 'hostname -s' != "lzone" ]
-then
-    if [ ${hpcc_package} == "CE" ]
-    then
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb -P /tmp -a /var/log/wget.log
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 -P /tmp -a /var/log/wget.log
 
-        if [ -e /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb ] && [ -e /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 ]
+elif [ $isDebian == true ]
+then
+    if [ ${edition} == "CE" ]
+    then
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb.md5 -P /tmp -a /var/log/wget.log
+
+        if [ -e /tmp/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb ] && [ -e /tmp/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb.md5 ]
         then
             #checksum
-            A=$(md5sum /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb | awk '{print $1}')
-            B=$(cat /tmp/hpccsystems-platform-community_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 | awk '{print $1}')
+            A=$(md5sum /tmp/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb | awk '{print $1}')
+            B=$(cat /tmp/hpccsystems-platform-community_${version}-${release}$distro_amd64.deb.md5 | awk '{print $1}')
         else
             echo ".deb or .deb.md5 file is missing"
             echo "Exiting now"
             exit 1
         fi
-    elif [ ${hpcc_package} == "LN" ]
+    elif [ ${edition} == "LN" ]
     then
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb -P /tmp -a /var/log/wget.log
-        wget http://${build_server}/builds/${hpcc_package}-Candidate-${hpcc_version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb -P /tmp -a /var/log/wget.log
+        wget http://${server}/builds/${edition}-Candidate-${version}/bin/platform-withplugins-spark/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb.md5 -P /tmp -a /var/log/wget.log
     
-        if [ -e /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb ] && [ -e /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 ]
+        if [ -e /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb ] && [ -e /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb.md5 ]
         then
             #checksum
-            A=$(md5sum /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb | awk '{print $1}')
-            B=$(cat /tmp/hpccsystems-platform-internal-with-spark_${hpcc_version}-${hpcc_release}$distro_amd64.deb.md5 | awk '{print $1}')
+            A=$(md5sum /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb | awk '{print $1}')
+            B=$(cat /tmp/hpccsystems-platform-internal-with-spark_${version}-${release}$distro_amd64.deb.md5 | awk '{print $1}')
         else
             echo ".deb or .deb.md5 file is missing"
             echo "Exiting now"
             exit 1
         fi
     else
-        echo "Wrong package type: ${hpcc_package}"
-        echo "Available package types: CE, LN"
+        echo "Wrong edition: ${edition}"
+        echo "Available editions: CE, LN"
         exit 1
     fi
 
@@ -208,6 +218,7 @@ then
     then
         dpkg -i /tmp/hpccsystems-platform-*.deb
         apt-get install -f -y
+        sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
 
 else

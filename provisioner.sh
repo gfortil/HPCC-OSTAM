@@ -10,7 +10,7 @@ set -x
 # Set timezone
 export TZ="/usr/share/zoneinfo/America/${timezone}"
 echo "export TZ=\"/usr/share/zoneinfo/America/${timezone}\"" >> ~/.bashrc
-$(cat ~/.bashrc | TZ)
+$(cat ~/.bashrc | grep TZ)
 
 # ---
 # Format and mount filesystems
@@ -27,7 +27,7 @@ else
     while [ ! -b ${device} ]; do sleep 1; done
 
     mkfs.ext4 ${device}
-    mkdir -p ${mountpoint}
+    mkdir ${mountpoint}
     
     sleep 5
 
@@ -75,20 +75,10 @@ move_dir /usr/local
 move_dir /opt
 move_dir /tmp
 
+
 if [ `hostname -s` == "esp" ]
 then
     move_dir /downloads
-fi
-
-if [ `hostname -s` == "lzone" ]
-then
-    for folder in ${mydropzone_folder_names}
-    do
-        mkdir /var/lib/HPCCSystems/mydropzone/$folder
-        move_dir /var/lib/HPCCSystems/mydropzone/$folder
-        chown hpcc:hpcc ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
-        chmod 775 ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
-    done
 fi
 
 # ---
@@ -131,6 +121,7 @@ then
 
     # Copy RPM-GPG-KEY for EPEL-7 into /etc/pki/rpm-gpg
     cp /home/centos/RPM-GPG-KEY-EPEL-7 /etc/pki/rpm-gpg
+    cp /home/centos/RPM-GPG-KEY-remi /etc/pki/rpm-gpg
 
     yum update -y
 
@@ -175,6 +166,8 @@ then
         yum install -y /tmp/hpccsystems-platform-*.rpm
         sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
+
+    yum install -y httpd-tools
 
 elif [ $isDebian == true ]
 then
@@ -221,10 +214,24 @@ then
         sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
 
+    apt-get update
+    apt-get install apache2 apache2-utils
+
 else
     echo "Unsupported distro: $distro"
     echo "Currently support distros: el7, el6, disco, bionic, xenial."
     exit 1
+fi
+
+if [ `hostname -s` == "landingzone" ] && [ -d /var/lib/HPCCSystems ]
+then
+    for folder in ${mydropzone_folder_names}
+    do
+        mkdir -p -v /var/lib/HPCCSystems/mydropzone/$folder
+        move_dir /var/lib/HPCCSystems/mydropzone/$folder
+        chown hpcc:hpcc ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
+        chmod 775 ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
+    done
 fi
 
 echo "Done provisioning!"

@@ -1,3 +1,13 @@
+variable "username" {
+    type = string
+    default = "godji"
+}
+
+variable "password" {
+    type = string
+    default = "bla"
+}
+
 variable "mydropzone_folder_names" {
   type      = list
   default   = ["mydropzone"]
@@ -5,81 +15,81 @@ variable "mydropzone_folder_names" {
 
 variable "hpcc_upgrade" {
     type = object({
-        version = string,
-        release = string,
-        edition = string,
+        version = string
+        release = string
+        edition = string
         server  = string
     })
 }
 
 variable "master" {
     type = object({
-        flavor_name  = string,
+        flavor_name  = string
         disk         = string
     })
 }
 
 variable "dali" {
     type = object({
-        flavor_name = string,
+        flavor_name = string
         disk        = string
     })
 }
 
 variable "landingzone" {
     type = object({
-        flavor_name = string,
+        flavor_name = string
         disk        = string
     })
 }
 
 variable "esp" {
     type = object({
-        flavor_name = string,
+        flavor_name = string
         disk        = string
     })
 }
 
 variable "slave" {
     type = object({
-        count       = number,
-        flavor_name = string,
+        count       = number
+        flavor_name = string
         disk        = string
     })
 }
 
 variable "support" {
     type = object({
-        count       = number,
-        flavor_name = string,
+        count       = number
+        flavor_name = string
         disk        = string
     })
 }
 
 variable "system_config" {
     type = object({
-        image_name      = string,
-        image_id        = string,
-        pub_key_name   = string,
-        private_key     = string,
-        subnet_name     = string,
-        network_name    = string,
-        device          = string,
-        mountpoint      = string,
+        image_name      = string
+        image_id        = string
+        pub_key_name   = string
+        private_key     = string
+        subnet_name     = string
+        network_name    = string
+        device          = string
+        mountpoint      = string
         timezone        = string
     })
 }
 
 variable "allow_traffic" {
     type = object({
-        from_port   = number,
+        from_port   = number
         to_port     = number
     })
 }
 
 variable "dns" {
     type = object({
-        enabled     = bool,
+        enabled     = bool
         zone_name   = string
         zone_ttl    = number 
         zone_type   = string
@@ -96,5 +106,3 @@ variable "float_ip" {
         address = string
     })
 }
-
-

@@ -223,7 +223,7 @@ else
     exit 1
 fi
 
-if [ `hostname -s` == "landingzone" ] && [ -d /var/lib/HPCCSystems ]
+if [ `hostname -s` == "dropzone" ] && [ -d /var/lib/HPCCSystems ]
 then
     for folder in ${mydropzone_folder_names}
     do
@@ -234,6 +234,9 @@ then
     done
 fi
 
+wget http://10.240.32.242/data3/godji/vm_backup/cloud/openstack-ops/o7boca/UDL/environment.xml -nd -nc -P /etc/HPCCSystems/source/ -O environment.xml
+cp /etc/HPCCSystems/source/environment.xml /etc/HPCCSystems/
+/etc/init.d/hpcc-init start
 echo "Done provisioning!"
 exit 0
 

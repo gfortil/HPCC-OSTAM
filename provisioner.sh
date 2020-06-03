@@ -16,18 +16,32 @@ $(cat ~/.bashrc | grep TZ)
 # Format and mount filesystems
 # ---
 
-mount | grep ${device}
-if [ $? -eq 0 ]
+# mount | grep ${device}
+# if [ $? -eq 0 ]
+# then
+#     echo "${device} was already mounted"
+# else
+
+if [ "$(df -Th | grep ${device} | awk '{print $1}')" == "${device}" ]
 then
-    echo "${device} was already mounted"
+    echo "${device} has already been mounted."
 else
     echo "Format ${device}"
 
     # This block is necessary to prevent provisioner from continuing before volume is attached
     while [ ! -b ${device} ]; do sleep 1; done
 
-    mkfs.ext4 ${device}
-    mkdir ${mountpoint}
+    UUID=$(lsblk -no UUID ${device})
+
+    if [ -z $UUID ]
+    then
+        mkfs.ext4 ${device}
+    fi
+    
+    if [ ! -d ${mountpoint} ]
+    then
+        mkdir -p ${mountpoint}
+    fi
     
     sleep 5
 
@@ -35,8 +49,7 @@ else
     if [ $? -ne 0 ]
     then
         echo "Add ${device} to /etc/fstab"
-        FS_UUID=$(lsblk -no UUID ${device})
-        echo "UUID=$FS_UUID ${mountpoint}    xfs    noatime    0 0" >> /etc/fstab
+        echo "UUID=$UUID ${mountpoint}    xfs    noatime    0 0" >> /etc/fstab
     fi
 
     echo "Mount ${device}"
@@ -56,27 +69,31 @@ then
     echo "${ip} `hostname -s` `hostname`" >> /etc/hosts
 fi
 
-# ---
-# Move directories from bootdisk to mountpoint
-# ---
 move_dir () {
-    if [ ! -d ${mountpoint}$1 ] # if directory doesn't exist on the mounted volume
+    if [ -d ${mountpoint}$1 ] # if directory exist on the mounted volume
     then
+        if [ -d $1 ]
+        then
+            rm $1 -rf
+        fi
+
+        ln -s ${mountpoint}$1 $1
+    else    
         mkdir -p ${mountpoint}$1
+
         if [ -d $1 ] # if directory exists on root volume
         then
-            mv $1 ${mountpoint}$(dirname "$1")
+            cp -avr $1/* ${mountpoint}/$1
+            rm -r $1 
         fi
+
         ln -s ${mountpoint}$1 $1
+        chmod hpcc:hpcc $1 -R
     fi
 }
 
-move_dir /usr/local
-move_dir /opt
-move_dir /tmp
 
-
-if [ `hostname -s` == "esp" ]
+if [ `hostname -s` == "${project_name}-esp_*" ]
 then
     move_dir /downloads
 fi
@@ -118,6 +135,8 @@ then
     # Enable EPEL
     #yum --enablerepo=LN-epel
     sed -i '/LN-epel/,/enabled=0/ s/enabled=0/enabled=1/' /etc/yum.repos.d/LexisNexis.repo
+    sed -i '/LN-base/,/enabled=0/ s/enabled=0/enabled=1/' /etc/yum.repos.d/LexisNexis.repo
+    sed -i '/LN-updates/,/enabled=0/ s/enabled=0/enabled=1/' /etc/yum.repos.d/LexisNexis.repo
 
     # Copy RPM-GPG-KEY for EPEL-7 into /etc/pki/rpm-gpg
     cp /home/centos/RPM-GPG-KEY-EPEL-7 /etc/pki/rpm-gpg
@@ -163,6 +182,7 @@ then
 
     if [ $A == $B ]
     then
+        yum install git -y
         yum install -y /tmp/hpccsystems-platform-*.rpm
         sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
@@ -209,6 +229,7 @@ then
 
     if [ $A == $B ]
     then
+        apt-get install git -y
         dpkg -i /tmp/hpccsystems-platform-*.deb
         apt-get install -f -y
         sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
@@ -223,20 +244,43 @@ else
     exit 1
 fi
 
-if [ `hostname -s` == "dropzone" ] && [ -d /var/lib/HPCCSystems ]
+ecl --version #verify build
+
+move_dir /opt/HPCCSystems
+move_dir /var/log/HPCCSystems
+move_dir /var/lib/HPCCSystems
+
+if [ `hostname -s` == "${project_name}-dropzone" ]
 then
     for folder in ${mydropzone_folder_names}
     do
-        mkdir -p -v /var/lib/HPCCSystems/mydropzone/$folder
-        move_dir /var/lib/HPCCSystems/mydropzone/$folder
-        chown hpcc:hpcc ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
-        chmod 775 ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
+        if [ ! -d ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder ]
+        then
+            mkdir -m 775 -p -v ${mountpoint}/var/lib/HPCCSystems/mydropzone/$folder
+        else
+            echo "A folder named $folder already exist"
+        fi
     done
 fi
 
-wget http://10.240.32.242/data3/godji/vm_backup/cloud/openstack-ops/o7boca/UDL/environment.xml -nd -nc -P /etc/HPCCSystems/source/ -O environment.xml
-cp /etc/HPCCSystems/source/environment.xml /etc/HPCCSystems/
-/etc/init.d/hpcc-init start
+if [ ! -d ${mountpoint}/configurations ]
+then
+    mkdir -p -v -m 775 ${mountpoint}/configurations
+    chown hpcc:hpcc ${mountpoint}/configurations -R
+fi
+
+if [ `hostname -s` == "${project_name}-esp_*" ] && [ -e ${mountpoint}/configurations/.htpasswd ]
+then        
+    #     htpasswd -c -b -B /etc/HPCCSystems/.htpasswd admin
+    ln -s ${mountpoint}/etc/HPCCSystems/.htpasswd /etc/HPCCSystems/.htpasswd
+fi
+
+if [ -e ${mountpoint}/configurations/environment.xml ]
+then
+    cp ${mountpoint}/configurations/environment.xml /etc/HPCCSystems/environment.xml
+    chown hpcc:hpcc /etc/HPCCSystems/environment.xml
+    /etc/init.d/hpcc-init start
+fi
 echo "Done provisioning!"
 exit 0
 

@@ -1,3 +1,7 @@
+variable "project_name" {
+  type  = string
+}
+
 variable "mydropzone_folder_names" {
   type    = list
   default = ["mydropzone"]
@@ -50,7 +54,7 @@ variable "thor" {
   })
 }
 
-variable "support" {
+variable "generic" {
   type = object({
     count       = number
     flavor_name = string
@@ -98,3 +102,4 @@ variable "float_ip" {
     address = string
   })
 }
+

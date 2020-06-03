@@ -61,81 +61,81 @@ resource "openstack_networking_secgroup_rule_v2" "secgroup_rule_5" {
 #----------------------------------------------------------------
 
 resource "openstack_networking_port_v2" "dali_port" {
-  name               = "dali_port"
+  name               = "${var.project_name}_dali_port"
   network_id         = data.openstack_networking_network_v2.network.id
   admin_state_up     = "true"
   security_group_ids = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 5)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 10)
 
   }
 }
 
 resource "openstack_networking_port_v2" "dropzone_port" {
-  name               = "dropzone_port"
+  name               = "${var.project_name}_dropzone_port"
   network_id         = data.openstack_networking_network_v2.network.id
   admin_state_up     = "true"
   security_group_ids = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 6)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 11)
 
   }
 }
 
 resource "openstack_networking_port_v2" "esp_port" {
   count               = var.esp.count
-  name                = format("esp-port-%02d", count.index + 1)
+  name                = format("${var.project_name}_esp_port_%02d", count.index + 1)
   network_id          = data.openstack_networking_network_v2.network.id
   admin_state_up      = "true"
   security_group_ids  = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 7 + count.index)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 12 + count.index)
 
   }
 }
 
 resource "openstack_networking_port_v2" "roxie_port" {
   count               = var.roxie.count
-  name                = format("roxie-port-%02d", count.index + 1)
+  name                = format("${var.project_name}_roxie_port_%02d", count.index + 1)
   network_id          = data.openstack_networking_network_v2.network.id
   admin_state_up      = "true"
   security_group_ids  = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 7 + "${var.esp.count}" + count.index)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 12 + "${var.esp.count}" + count.index)
 
   }
 }
 resource "openstack_networking_port_v2" "thor_port" {
   count              = var.thor.count
-  name               = format("thor-port-%02d", count.index + 1)
+  name               = format("${var.project_name}_thor_port_%02d", count.index + 1)
   network_id         = data.openstack_networking_network_v2.network.id
   admin_state_up     = "true"
   security_group_ids = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 7 + "${var.esp.count}" + "${var.roxie.count}" + count.index)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 12 + "${var.esp.count}" + "${var.roxie.count}" + count.index)
 
   }
 }
-resource "openstack_networking_port_v2" "support_port" {
-  count              = var.support.count
-  name               = format("support_port-%02d", count.index + 1)
+resource "openstack_networking_port_v2" "generic_port" {
+  count              = var.generic.count
+  name               = format("${var.project_name}_generic_port_%02d", count.index + 1)
   network_id         = data.openstack_networking_network_v2.network.id
   admin_state_up     = "true"
   security_group_ids = ["${openstack_networking_secgroup_v2.secgroup.id}"]
 
   fixed_ip {
     subnet_id  = data.openstack_networking_subnet_v2.subnet.id
-    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 7 + "${var.esp.count}" + "${var.roxie.count}" + "${var.thor.count}" + count.index)
+    ip_address = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 12 + "${var.esp.count}" + "${var.roxie.count}" + "${var.thor.count}" + count.index)
 
   }
 }
@@ -160,11 +160,58 @@ resource "openstack_dns_recordset_v2" "hpcc_record_set" {
   records = ["${var.float_ip.address}"]
 }
 
+# Associate floating IP
 resource "openstack_compute_floatingip_associate_v2" "float_ip" {
   count       = var.float_ip.enabled == true ? 1 : 0
   floating_ip = var.float_ip.address
+  # instance_id = openstack_lb_loadbalancer_v2.lb_1.*.id[count.index]
   instance_id = element(openstack_compute_instance_v2.esp.*.id, count.index)
 }
+
+# # Create Load Balancer
+# resource "openstack_lb_loadbalancer_v2" "lb_1" {
+#   count         = var.esp.count > 1 ? 1 : 0
+#   name          = "${var.project_name}_lb"
+#   vip_subnet_id = data.openstack_networking_subnet_v2.subnet.id
+#   vip_address   = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 9)
+# }
+
+# # LB Listener
+# resource "openstack_lb_listener_v2" "listener_1" {
+#   count           = var.esp.count > 1 ? 1 : 0
+#   protocol        = "HTTP"
+#   protocol_port   = 8010
+#   loadbalancer_id = openstack_lb_loadbalancer_v2.lb_1.*.id[count.index]
+# }
+
+# # LB Pool 
+# resource "openstack_lb_pool_v2" "pool_1" {
+#   count           = var.esp.count > 1 ? 1 : 0
+#   name            = "${var.project_name}_pool_1"
+#   protocol        = "HTTP"
+#   lb_method       = "ROUND_ROBIN"
+#   loadbalancer_id = openstack_lb_loadbalancer_v2.lb_1.*.id[count.index]
+#   listener_id     = openstack_lb_listener_v2.listener_1.*.id[count.index]
+# }
+
+# # LB Monitoring 
+# resource "openstack_lb_monitor_v2" "monitor_1" {
+#   count       = var.esp.count > 1 ? var.esp.count : 0
+#   pool_id     = openstack_lb_pool_v2.pool_1.*.id[0]
+#   type        = "TCP"
+#   delay       = 5
+#   timeout     = 5
+#   max_retries = 3
+# }
+
+# # LB Members 
+# resource "openstack_lb_member_v2" "member_1" {
+#   count         = var.esp.count
+#   pool_id       = openstack_lb_pool_v2.pool_1.*.id[0]
+#   address       = cidrhost(data.openstack_networking_subnet_v2.subnet.cidr, 12 + count.index)
+#   protocol_port = 8010
+#   subnet_id     = data.openstack_networking_subnet_v2.subnet.id
+# }
 
 # Create volumes
 ## Be very careful of your changes
@@ -173,8 +220,8 @@ resource "openstack_compute_floatingip_associate_v2" "float_ip" {
 
 resource "openstack_blockstorage_volume_v2" "esp_vol" {
   count       = var.esp.count
-  name        = "esp-${count.index + 1}-vol"
-  description = "ECLWatch dedicated volume"
+  name        = "${var.project_name}_esp_${count.index + 1}_vol"
+  description = "ECLWatch node dedicated volume"
   size        = var.esp.disk
   image_id    = var.system_config.image_id
   lifecycle {
@@ -182,8 +229,8 @@ resource "openstack_blockstorage_volume_v2" "esp_vol" {
   }
 }
 resource "openstack_blockstorage_volume_v2" "dali_vol" {
-  name        = "dali_vol"
-  description = "Dali dedicated volume"
+  name        = "${var.project_name}_dali_vol"
+  description = "Dali node dedicated volume"
   size        = var.dali.disk
   image_id    = var.system_config.image_id
   lifecycle {
@@ -191,8 +238,8 @@ resource "openstack_blockstorage_volume_v2" "dali_vol" {
   }
 }
 resource "openstack_blockstorage_volume_v2" "dropzone_vol" {
-  name        = "dropzone_vol"
-  description = "Landing Zone dedicated volume"
+  name        = "${var.project_name}_dropzone_vol"
+  description = "Landing Zone node dedicated volume"
   size        = var.dropzone.disk
   image_id    = var.system_config.image_id
   lifecycle {
@@ -201,19 +248,19 @@ resource "openstack_blockstorage_volume_v2" "dropzone_vol" {
 }
 resource "openstack_blockstorage_volume_v2" "thor_vol" {
   count       = var.thor.count
-  name        = "thor-${count.index + 1}-vol"
-  description = "thors dedicated volumes"
+  name        = "${var.project_name}_thor_${count.index + 1}_vol"
+  description = "thor node dedicated volumes"
   size        = var.thor.disk
   image_id    = var.system_config.image_id
   lifecycle {
     prevent_destroy = false
   }
 }
-resource "openstack_blockstorage_volume_v2" "support_vol" {
-  count       = var.support.count
-  name        = "support-${count.index + 1}-vol"
-  description = "supports dedicated volumes"
-  size        = var.support.disk
+resource "openstack_blockstorage_volume_v2" "generic_vol" {
+  count       = var.generic.count
+  name        = "${var.project_name}_generic_${count.index + 1}_vol"
+  description = "generic node dedicated volume"
+  size        = var.generic.disk
   image_id    = var.system_config.image_id
   lifecycle {
     prevent_destroy = false
@@ -221,8 +268,8 @@ resource "openstack_blockstorage_volume_v2" "support_vol" {
 }
 resource "openstack_blockstorage_volume_v2" "roxie_vol" {
   count       = var.roxie.count
-  name        = "roxie-${count.index + 1}-vol"
-  description = "roxie dedicated volume"
+  name        = "${var.project_name}_roxie_${count.index + 1}_vol"
+  description = "roxie node dedicated volume"
   size        = var.roxie.disk
   image_id    = var.system_config.image_id
   lifecycle {
@@ -235,7 +282,7 @@ resource "openstack_blockstorage_volume_v2" "roxie_vol" {
 
 resource "openstack_compute_instance_v2" "roxie" {
   count             = var.roxie.count
-  name              = "roxie-${count.index + 1}"
+  name              = "${var.project_name}_roxie_${count.index + 1}"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
   flavor_name       = var.roxie.flavor_name
@@ -253,7 +300,7 @@ resource "openstack_compute_instance_v2" "roxie" {
 
 resource "openstack_compute_instance_v2" "thor" {
   count             = var.thor.count
-  name              = "thor-${count.index + 1}"
+  name              = "${var.project_name}_thor_${count.index + 1}"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
   flavor_name       = var.thor.flavor_name
@@ -270,7 +317,7 @@ resource "openstack_compute_instance_v2" "thor" {
 #----------------------------------------------------------------
 
 resource "openstack_compute_instance_v2" "dali" {
-  name              = "dali"
+  name              = "${var.project_name}_dali"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
   flavor_name       = var.dali.flavor_name
@@ -289,7 +336,7 @@ resource "openstack_compute_instance_v2" "dali" {
 
 resource "openstack_compute_instance_v2" "esp" {
   count             = var.esp.count
-  name              = "esp-${count.index + 1}"
+  name              = "${var.project_name}_esp_${count.index + 1}"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
   flavor_name       = var.esp.flavor_name
@@ -307,7 +354,7 @@ resource "openstack_compute_instance_v2" "esp" {
 #----------------------------------------------------------------
 
 resource "openstack_compute_instance_v2" "dropzone" {
-  name              = "dropzone"
+  name              = "${var.project_name}_dropzone"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
   flavor_name       = var.dropzone.flavor_name
@@ -321,23 +368,23 @@ resource "openstack_compute_instance_v2" "dropzone" {
   user_data = data.template_file.dropzone_user_data.rendered
 }
 
-## Compute support nodes 
+## Compute generic nodes 
 #----------------------------------------------------------------
 
-resource "openstack_compute_instance_v2" "support" {
-  count             = var.support.count
-  name              = "support-${count.index + 1}"
+resource "openstack_compute_instance_v2" "generic" {
+  count             = var.generic.count
+  name              = "${var.project_name}_${count.index + 1}"
   image_name        = var.system_config.image_name
   image_id          = var.system_config.image_id
-  flavor_name       = var.support.flavor_name
+  flavor_name       = var.generic.flavor_name
   key_pair          = var.system_config.pub_key_name
-  availability_zone = element(openstack_blockstorage_volume_v2.support_vol.*.availability_zone, count.index)
+  availability_zone = element(openstack_blockstorage_volume_v2.generic_vol.*.availability_zone, count.index)
   security_groups   = ["${openstack_networking_secgroup_v2.secgroup.name}"]
   network {
-    port = openstack_networking_port_v2.support_port.*.id[count.index]
+    port = openstack_networking_port_v2.generic_port.*.id[count.index]
   }
 
-  user_data = element(data.template_file.support_user_data.*.rendered, count.index)
+  user_data = element(data.template_file.generic_user_data.*.rendered, count.index)
 }
 
 # Attach Volumes
@@ -366,11 +413,8 @@ resource "openstack_compute_volume_attach_v2" "roxie_attach" {
   instance_id = element(openstack_compute_instance_v2.roxie.*.id, count.index)
   volume_id   = element(openstack_blockstorage_volume_v2.roxie_vol.*.id, count.index)
 }
-resource "openstack_compute_volume_attach_v2" "support_attach" {
-  count       = var.support.count
-  instance_id = element(openstack_compute_instance_v2.support.*.id, count.index)
-  volume_id   = element(openstack_blockstorage_volume_v2.support_vol.*.id, count.index)
+resource "openstack_compute_volume_attach_v2" "generic_attach" {
+  count       = var.generic.count
+  instance_id = element(openstack_compute_instance_v2.generic.*.id, count.index)
+  volume_id   = element(openstack_blockstorage_volume_v2.generic_vol.*.id, count.index)
 }
-
-
-

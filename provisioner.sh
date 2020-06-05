@@ -246,7 +246,7 @@ fi
 
 ecl --version #verify build
 
-move_dir /opt/HPCCSystems
+# move_dir /opt/HPCCSystems
 move_dir /var/log/HPCCSystems
 move_dir /var/lib/HPCCSystems
 

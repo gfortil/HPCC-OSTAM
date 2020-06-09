@@ -80,7 +80,7 @@ move_dir () {
         ln -s ${mountpoint}$1 $1
     else    
         mkdir -p ${mountpoint}$1
-
+        chown hpcc:hpcc ${mountpoint}$1 -R
         if [ -d $1 ] # if directory exists on root volume
         then
             cp -avr $1/* ${mountpoint}/$1
@@ -88,7 +88,7 @@ move_dir () {
         fi
 
         ln -s ${mountpoint}$1 $1
-        chmod hpcc:hpcc $1 -R
+        chown hpcc:hpcc $1 -R
     fi
 }
 
@@ -275,9 +275,9 @@ then
     ln -s ${mountpoint}/etc/HPCCSystems/.htpasswd /etc/HPCCSystems/.htpasswd
 fi
 
-if [ -e ${mountpoint}/configurations/environment.xml ]
+if [ -e ${mountpoint}/ect/HPCCSystems/environment.xml ]
 then
-    cp ${mountpoint}/configurations/environment.xml /etc/HPCCSystems/environment.xml
+    ln -s ${mountpoint}/etc/HPCCSystems/environment.xml /etc/HPCCSystems/environment.xml
     chown hpcc:hpcc /etc/HPCCSystems/environment.xml
     /etc/init.d/hpcc-init start
 fi

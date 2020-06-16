@@ -246,7 +246,6 @@ fi
 
 ecl --version #verify build
 
-# move_dir /opt/HPCCSystems
 move_dir /var/log/HPCCSystems
 move_dir /var/lib/HPCCSystems
 
@@ -263,20 +262,19 @@ then
     done
 fi
 
-if [ ! -d ${mountpoint}/configurations ]
-then
-    mkdir -p -v -m 775 ${mountpoint}/configurations
-    chown hpcc:hpcc ${mountpoint}/configurations -R
-fi
 
-if [ `hostname -s` == "${project_name}-esp_*" ] && [ -e ${mountpoint}/configurations/.htpasswd ]
+if [ `hostname -s` == "${project_name}-esp_"* ] && [ -e ${mountpoint}/etc/HPCCSystems/.htpasswd ]
 then        
     #     htpasswd -c -b -B /etc/HPCCSystems/.htpasswd admin
     ln -s ${mountpoint}/etc/HPCCSystems/.htpasswd /etc/HPCCSystems/.htpasswd
 fi
 
-if [ -e ${mountpoint}/ect/HPCCSystems/environment.xml ]
+if [ -e ${mountpoint}/etc/HPCCSystems/environment.xml ]
 then
+    if [ -e /etc/HPCCSystems/environment.xml ]
+    then
+        rm -rf /etc/HPCCSystems/environment.xml
+    fi
     ln -s ${mountpoint}/etc/HPCCSystems/environment.xml /etc/HPCCSystems/environment.xml
     chown hpcc:hpcc /etc/HPCCSystems/environment.xml
     /etc/init.d/hpcc-init start

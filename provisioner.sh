@@ -83,7 +83,7 @@ move_dir () {
         chown hpcc:hpcc ${mountpoint}$1 -R
         if [ -d $1 ] # if directory exists on root volume
         then
-            cp -avr $1/* ${mountpoint}/$1
+            cp -avr $1/* ${mountpoint}$1
             rm -r $1 
         fi
 
@@ -182,12 +182,13 @@ then
 
     if [ $A == $B ]
     then
-        yum install git -y
+        yum install -y git 
         yum install -y /tmp/hpccsystems-platform-*.rpm
         sed -i '0,/session/ s//session         [success=ignore default=1] pam_succeed_if.so user = hpcc\nsession         sufficient      pam_unix.so\nsession/' /etc/pam.d/su
     fi
 
-    yum install -y httpd-tools
+    yum install -y httpd-tools python-pip centos-release-scl rh-python36
+    scl enable rh-python36 bash #for TensorFlow
 
 elif [ $isDebian == true ]
 then
@@ -236,13 +237,28 @@ then
     fi
 
     apt-get update
-    apt-get install apache2 apache2-utils
+    apt-get install apache2 apache2-utils python3-pip
+    apt install python3-venv #for TensorFlow
 
 else
     echo "Unsupported distro: $distro"
     echo "Currently support distros: el7, el6, disco, bionic, xenial."
     exit 1
 fi
+
+pip3 install numpy #might already be included in python3.6
+pip install gnn #Install GNN
+
+# Install TensorFlow
+mkdir ${mountpoint}/my_tensorflow
+cd ${mountpoint}/my_tensorflow
+## create virtual env
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install --upgrade tensorflow
+## print version
+echo "TensorFlow version: $(python -c 'import tensorflow as tf; print(tf.__version__)')"
 
 ecl --version #verify build
 
@@ -260,12 +276,15 @@ then
             echo "A folder named $folder already exist"
         fi
     done
+    
+    chown hpcc:hpcc ${mountpoint}/var/lib/HPCCSystems/mydropzone -R
 fi
 
 
-if [ `hostname -s` == "${project_name}-esp_"* ] && [ -e ${mountpoint}/etc/HPCCSystems/.htpasswd ]
+if [ `hostname -s` == "${project_name}-esp-1" ] && [ -e ${mountpoint}/etc/HPCCSystems/.htpasswd ]
 then        
-    #     htpasswd -c -b -B /etc/HPCCSystems/.htpasswd admin
+    # htpasswd -c -b -B /mnt/vdb/etc/HPCCSystems/.htpasswd admin #creates a new file
+    # htpasswd -b -B /mnt/vdb/etc/HPCCSystems/.htpasswd admin #append to existing file
     ln -s ${mountpoint}/etc/HPCCSystems/.htpasswd /etc/HPCCSystems/.htpasswd
 fi
 
